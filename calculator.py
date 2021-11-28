@@ -189,4 +189,3 @@ class BonusCalculator:
             for key, value in result.items():
                 cleaned_result[key] = round(value.quantize(Decimal('0.01')))
             return cleaned_result
-

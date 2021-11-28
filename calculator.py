@@ -1,22 +1,47 @@
 import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 class Bonus:
 
     def __init__(
             self,
-            start_date: datetime.date,
-            end_date: datetime.date,
+            start_date: str,
+            end_date: str,
             value: Decimal,
             user_id: int,
             *args,
             **kwargs
     ):
-        self.start_date = start_date
-        self.end_date = end_date
+        """
+        A bonus, representing a bonus to be calculated with. Expected formats:
+        start_date: A string, formatted as "dd-mm-yyyy"
+        end_date: A string, formatted as "dd-mm-yyyy"
+        value: a Decimal number
+        user_id: A integer, representing an ID in the datebase.
+        """
+        self.start_date = self._validate_datetime(start_date)
+        self.end_date = self._validate_datetime(end_date)
         self.user = user_id
         self.value = value
+
+    def _validate_datetime(self, date_string):
+        try:
+            return datetime.datetime.strptime(
+                date_string, '%d-%m-%Y'
+            )
+        except ValueError:
+            raise ValueError(
+                "The date you have entered is incorrect, likely misformatted."
+            )
+
+    def _validate_value(self, value):
+        try:
+            return Decimal(value)
+        except InvalidOperation:
+            raise InvalidOperation(
+                "The value could not be converted to a Decimal"
+            )
 
 
     @property
@@ -28,17 +53,28 @@ class BonusCalculator:
 
     def __init__(
             self,
-            bonus_list: list(Bonus),
-            start_date: datetime.date,
-            end_date: datetime.date
+            bonus_list: list[Bonus],
+            start_date: str,
+            end_date: str,
             *args,
             **kwargs
     ):
         self._bonus_list = bonus_list
-        self.start_date = start_date
-        self.end_date = end_date
+        self.start_date = self._validate_datetime(start_date)
+        self.end_date = self._validate_datetime(end_date)
+        self.result = self._calculate_bonus()
 
-    def _get_bonus_list(self) -> list(Bonus):
+    def _validate_datetime(self, date_string):
+        try:
+            return datetime.datetime.strptime(
+                date_string, '%d-%m-%Y'
+            )
+        except ValueError:
+            raise ValueError(
+                "The date you have entered is incorrect, likely misformatted."
+            )
+
+    def _get_bonus_list(self) -> list[Bonus]:
         """Method to 'simulate' a database call simply to return
         a list of objects.
         """
@@ -48,7 +84,8 @@ class BonusCalculator:
         result = Decimal(0)
         bonuses = self._get_bonus_list()
         for bonus in bonuses:
-            result += self._calculate_bonus_amount(bonus)
+            result += Decimal(self._calculate_bonus_amount(bonus))
+        return self._clean_result(result)
 
     def _calculate_bonus_amount(self, bonus: Bonus) -> Decimal:
         if (
@@ -83,14 +120,18 @@ class BonusCalculator:
         start_delta = self.start_date - bonus.start_date
         complete_bonus_time = bonus.end_date - bonus.start_date
         partial_bonus_time = complete_bonus_time - start_delta
-        value_per_day = bonus.value / complete_bonus_time.days()
-        partial_bonus = partial_bonus_time.days() * value_per_day
+        value_per_day = bonus.value / complete_bonus_time.days
+        partial_bonus = partial_bonus_time.days * value_per_day
         return partial_bonus
 
     def _calculate_partial_unfinished_bonus(self, bonus: Bonus) -> Decimal:
         end_delta = self.end_date - bonus.end_date
         complete_bonus_time = bonus.end_date - bonus.start_date
         partial_bonus_time = complete_bonus_time - end_delta
-        value_per_day = bonus.value / complete_bonus_time.days()
-        partial_bonus = partial_bonus_time.days() * value_per_day
+        value_per_day = bonus.value / complete_bonus_time.days
+        partial_bonus = partial_bonus_time.days * value_per_day
         return partial_bonus
+
+    def _clean_result(self, result: float) -> Decimal:
+        return round(result.quantize(Decimal('0.01')))
+
